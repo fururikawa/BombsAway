@@ -10,7 +10,7 @@ namespace BombsAway
         private static int[] FlowerIDs = new int[] { 201, 202, 203, 204, 205 };
         private static Queue<int> _nextFlowerIDs = new Queue<int>();
 
-        public static IEnumerator GetNextFlowerIDs(int quantity)
+        public static IEnumerator GetNextFlowerIDsToUse(int quantity)
         {
             for (int i = 0; i < quantity; i++)
             {

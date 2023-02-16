@@ -17,30 +17,32 @@ namespace BombsAway;
 public class Plugin : BaseUnityPlugin
 {
     private Harmony _harmony;
-    private bool _isInstanced = false;
     private ConfigEntry<int> _explosionRadius;
     private ConfigEntry<KeyCode> _modeSwapKey;
     private ConfigEntry<KeyCode> _keyModifier;
+    private ConfigEntry<bool> _isInifiniteMode;
 
     public Plugin()
     {
-        _explosionRadius = Config.Bind<int>("Main", "Intensity", 3, "How many blocks away from the bomb will be affected. Vanilla is 1, Max is 3 due to lag issues.");
-        _modeSwapKey = Config.Bind<KeyCode>("Main", "Swap Modes Key", KeyCode.B, "");
-        _keyModifier = Config.Bind<KeyCode>("Main", "Swap Modes Key Modifier", KeyCode.LeftShift, "");
+        _explosionRadius = Config.Bind<int>("Main", "Explosion Radius", 2, "How many blocks away from center are affected by the explosion. Min (Vanilla): 1, Max: 5.");
+        _isInifiniteMode = Config.Bind<bool>("Main", "Infinite Bombs", false, "Remember Uncle Ben's words.");
+        _modeSwapKey = Config.Bind<KeyCode>("Controls", "Switch Modes Key", KeyCode.B, "Key to switch between bomb modes.");
+        _keyModifier = Config.Bind<KeyCode>("Controls", "Switch Modes Key Modifier", KeyCode.LeftShift, "Optional modifier for the key above.");
     }
     private void Awake()
     {
-        BombExplodesPatch._explosionRadius = _explosionRadius.Value;
+        BombExplodesHelper.ExplosionRadius = Mathf.Clamp(_explosionRadius.Value, 1, 5);
+        BombExplodesHelper.IsInfiniteBombs = _isInifiniteMode.Value;
         _harmony = Harmony.CreateAndPatchAll(typeof(BombExplodesPatch), "fururikawa.BombsAway");
 
         // Plugin startup logic
         Logger.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} is loaded!");
-        Logger.LogInfo($"Sawp Bomb key set to: {_modeSwapKey.Value.ToString()}");
+        Logger.LogInfo($"Switch Bomb key set to: {_keyModifier.Value} + {_modeSwapKey.Value.ToString()}");
     }
 
     private void Start()
     {
-        BombExplodesPatch.calcCoordinates(_explosionRadius.Value);
+        BombExplodesHelper.ComputeExplosionGrid();
     }
 
     private void Update()
@@ -49,7 +51,9 @@ public class Plugin : BaseUnityPlugin
         if (localPlayer == null)
             return;
 
-        if (!localPlayer.myEquip.isInVehicle() && !localPlayer.myPickUp.isLayingDown() && !localPlayer.myPickUp.sitting)
+        if (!localPlayer.myEquip.isInVehicle() &&
+            !StatusManager.manage.dead &&
+            !localPlayer.myPickUp.isCarryingSomething())
         {
             InventorySlot slot = Inventory.inv.invSlots[Inventory.inv.selectedSlot];
 
@@ -57,15 +61,21 @@ public class Plugin : BaseUnityPlugin
             {
                 if (InputMaster.input.Interact())
                 {
-                    BombExplodesPatch._inverted = !BombExplodesPatch._inverted;
-                    String notification = BombExplodesPatch._inverted ? "Bomb set to make hills!" : "Bomb set to make holes!";
-                    NotificationManager.manage.createChatNotification(notification, false);
+                    if (!localPlayer.myPickUp.pickUp() &&
+                        !localPlayer.myInteract.tileInteract((int)localPlayer.myInteract.selectedTile.x, (int)localPlayer.myInteract.selectedTile.y))
+                    {
+                        BombExplodesHelper.InvertBombState();
+                        String notification = BombExplodesHelper.IsInverted ? "Bomb set to make hills!" : "Bomb set to make holes!";
+                        NotificationManager.manage.createChatNotification(notification, false);
+                        SoundManager.manage.play2DSound(SoundManager.manage.signTalk);
+                    }
                 }
 
-                if (Input.GetKey(_keyModifier.Value) && Input.GetKeyDown(_modeSwapKey.Value))
+                if ((_keyModifier.Value == KeyCode.None || Input.GetKey(_keyModifier.Value)) && Input.GetKeyDown(_modeSwapKey.Value))
                 {
-                    BombExplodesPatch.CycleBombMode();
-                    NotificationManager.manage.createChatNotification($"{BombExplodesPatch.GetBombModeActive()} Mode now in effect!", true);
+                    BombExplodesHelper.CycleBombMode();
+                    NotificationManager.manage.createChatNotification($"{BombExplodesHelper.GetBombModeActive()} Mode now in effect!", true);
+                    SoundManager.manage.play2DSound(SoundManager.manage.signTalk);
                 }
             }
         }
@@ -73,5 +83,6 @@ public class Plugin : BaseUnityPlugin
 
     private void OnDestroy()
     {
+        _harmony.UnpatchSelf();
     }
 }

@@ -13,10 +13,6 @@ namespace BombsAway
     [HarmonyPatch]
     public static class BombExplodesPatch
     {
-        public static int _explosionRadius = 3;
-        public static bool _inverted = false;
-        public static BombModes _bombModeActive = BombModes.Vanilla;
-
         [HarmonyPatch(typeof(CraftingManager), "Start")]
         [HarmonyPostfix]
         public static void SetRecipeAmounts()
@@ -24,61 +20,36 @@ namespace BombsAway
             Inventory.inv.allItems[277].craftable.recipeGiveThisAmount = 8;
         }
 
+        [HarmonyPatch(typeof(WorldManager), "Start")]
+        [HarmonyPostfix]
+        public static void PopulatePossibleIDReferences()
+        {
+            var _ = SillyMode.PossibleTileObjects;
+        }
+
         [HarmonyPatch(typeof(Inventory), "consumeItemInHand")]
         [HarmonyPrefix]
         public static bool consumeItemInHandPrefix(Inventory __instance)
         {
-            if (__instance.invSlots[__instance.selectedSlot].itemNo == 277)
-                return false;
-            return true;
+            return !(BombExplodesHelper.IsInfiniteBombs && __instance.invSlots[__instance.selectedSlot].itemNo == 277);
         }
 
         [HarmonyPatch(typeof(BombExplodes), "explodeTimer")]
         [HarmonyPrefix]
         public static bool explodeTimerPrefix(BombExplodes __instance, ref IEnumerator __result)
         {
-            if (_bombModeActive == BombModes.Silly)
+            if (BombExplodesHelper.BombModeActive == BombModes.Silly)
             {
-                baseStartCoroutine(__instance, SillyMode.GetNextTilesToUse((int)Mathf.Pow((_explosionRadius * 2 + 1), 2)));
+                baseStartCoroutine(__instance, SillyMode.GetNextTilesToUse((int)Mathf.Pow((BombExplodesHelper.ExplosionRadius * 2 + 1), 2)));
             }
-            else if (_bombModeActive == BombModes.Flowers)
+            else if (BombExplodesHelper.BombModeActive == BombModes.Flowers)
             {
-                baseStartCoroutine(__instance, FlowerMode.GetNextFlowerIDs((int)Mathf.Pow((_explosionRadius * 2 + 1), 2)));
+                baseStartCoroutine(__instance, FlowerMode.GetNextFlowerIDsToUse((int)Mathf.Pow((BombExplodesHelper.ExplosionRadius * 2 + 1), 2)));
             }
 
             __result = explodeTimer(__instance);
 
             return false;
-        }
-
-        public static void CycleBombMode()
-        {
-            switch (_bombModeActive)
-            {
-                case BombModes.Vanilla:
-                    _bombModeActive = BombModes.Flowers;
-                    break;
-                case BombModes.Flowers:
-                    _bombModeActive = BombModes.Silly;
-                    break;
-                case BombModes.Silly:
-                    _bombModeActive = BombModes.Vanilla;
-                    break;
-            }
-        }
-
-        public static String GetBombModeActive()
-        {
-            switch (_bombModeActive)
-            {
-                case BombModes.Vanilla:
-                    return "Vanilla";
-                case BombModes.Flowers:
-                    return "Flower";
-                case BombModes.Silly:
-                    return "Silly";
-            }
-            return "Vanilla";
         }
 
         private static bool shouldDestroyOnTile(int xPos, int yPos)
@@ -105,43 +76,35 @@ namespace BombsAway
                     NetworkMapSharer.share.RpcUpdateOnTileObject(-1, newX, newY);
                 }
 
-                if (!_inverted)
-                {
-                    updateTile(initialHeight, newX, newY, xDif, yDif);
-                }
-                else
-                {
-                    updateTileInverted(((byte)initialHeight), newX, newY, xDif, yDif);
-                }
+                updateTile(initialHeight, newX, newY, xDif, yDif);
 
-                if (_bombModeActive == BombModes.Silly)
+                if (BombExplodesHelper.BombModeActive == BombModes.Silly)
                 {
                     placeWorldObject(newX, newY, SillyMode.NextRandomTileObjectID());
                 }
-                else if (_bombModeActive == BombModes.Flowers)
+                else if (BombExplodesHelper.BombModeActive == BombModes.Flowers)
                 {
                     NetworkMapSharer.share.RpcUpdateOnTileObject(FlowerMode.NextFlowerId(), newX, newY);
                 }
             }
         }
 
-        static int[] fibonacci = new int[] { 1, 1, 2, 3, 5, 8, 13, 21 };
-
         private static void updateTile(int initialHeight, int newX, int newY, int xDif, int yDif)
         {
-            int distance = (Mathf.Abs(xDif) + Mathf.Abs(yDif));
+            int distance = Mathf.Abs(xDif) + Mathf.Abs(yDif);
             int heightDif = WorldManager.manageWorld.heightMap[newX, newY] - initialHeight;
-            if (heightDif >= 0 && heightDif <= 1 + _explosionRadius - distance)
+            int newHeight = 0;
+            if (BombExplodesHelper.IsInverted)
             {
-                NetworkMapSharer.share.RpcUpdateTileHeight(Mathf.RoundToInt(-3 / (float)fibonacci[distance]) - heightDif * Mathf.Clamp(distance, 0, 1), newX, newY);
+                if (heightDif <= BombExplodesHelper.ExplosionRadius && heightDif >= -1 - BombExplodesHelper.ExplosionRadius + distance)
+                    newHeight = Mathf.Clamp(BombExplodesHelper.ExplosionRadius * 2 - BombExplodesHelper.Fibo(distance), 0, BombExplodesHelper.ExplosionRadius + 1);
             }
-        }
-
-        private static void updateTileInverted(int initialHeight, int newX, int newY, int xDif, int yDif)
-        {
-            int distance = (Mathf.Abs(xDif) + Mathf.Abs(yDif));
-
-            NetworkMapSharer.share.RpcUpdateTileHeight(Mathf.Clamp((1 + _explosionRadius) - fibonacci[distance], 0, _explosionRadius + 1), newX, newY);
+            else
+            {
+                if (heightDif >= 0 && heightDif <= 1 + BombExplodesHelper.ExplosionRadius - distance)
+                    newHeight = -Mathf.Clamp((BombExplodesHelper.ExplosionRadius * 2 - BombExplodesHelper.Fibo(distance)), 0, BombExplodesHelper.ExplosionRadius + 1);
+            }
+            NetworkMapSharer.share.RpcUpdateTileHeight(newHeight, newX, newY);
         }
 
         private static void attackAndDoDamage(Damageable instance, int damageToDeal, Transform attackedBy, float knockBackAmount = 2.5f)
@@ -154,51 +117,35 @@ namespace BombsAway
                 if (knockBackAmount > 0f && instance.myChar)
                 {
                     Vector3 knockBackDir = -(attackedBy.position - Transform(instance).position).normalized;
-                    knockBackDir.y = 0.75f;
+                    knockBackDir.y = 0.75f; // fly me to the moon!
                     instance.myChar.RpcTakeKnockback(knockBackDir, knockBackAmount * 3.5f);
                 }
                 if (myAnimalAi && attackedBy)
                 {
                     myAnimalAi.takeHitAndKnockBack(attackedBy, knockBackAmount);
                 }
-                if (_bombModeActive == BombModes.Vanilla)
+                if (BombExplodesHelper.BombModeActive == BombModes.Vanilla)
                     instance.changeHealth(-Mathf.RoundToInt((float)damageToDeal / instance.defence));
             }
         }
 
         private static void placeWorldObject(int xPos, int yPos, int tileObjectId)
         {
-            if (tileObjectId != -1 && WorldManager.manageWorld.onTileMap[xPos, yPos] == -1)
+            if (tileObjectId != -1)
             {
                 if (WorldManager.manageWorld.allObjects[tileObjectId].tileObjectGrowthStages)
                 {
-                    WorldManager.manageWorld.onTileStatusMap[xPos, yPos] = WorldManager.manageWorld.allObjects[tileObjectId].tileObjectGrowthStages.objectStages.Length - 1;
+                    var growthStages = WorldManager.manageWorld.allObjects[tileObjectId].tileObjectGrowthStages.objectStages;
+                    WorldManager.manageWorld.onTileStatusMap[xPos, yPos] = UnityEngine.Random.Range(0, growthStages.Length);
                 }
 
                 WorldManager.manageWorld.onTileMap[xPos, yPos] = tileObjectId;
             }
         }
 
-        private static Tuple<int, int>[] nextCoordinates;
-
-        public static void calcCoordinates(int radius)
+        private static IEnumerator blowUpPosCoroutine(BombExplodes instance, int xPos, int yPos, int initialHeight)
         {
-            var coordinates = new List<Tuple<int, int, int>>();
-            for (int i = -radius; i <= radius; i++)
-            {
-                for (int j = -radius; j <= radius; j++)
-                {
-                    if (i == 0 && j == 0)
-                        continue;
-                    coordinates.Add(new Tuple<int, int, int>(i, j, Mathf.Abs(i) + Mathf.Abs(j)));
-                }
-            }
-            nextCoordinates = coordinates.OrderBy(x => x.Item3).Select(x => new Tuple<int, int>(x.Item1, x.Item2)).ToArray();
-        }
-
-        private static IEnumerator blowUpPosCoroutine(BombExplodes instance, int radius, int xPos, int yPos, int initialHeight)
-        {
-            foreach (var coords in nextCoordinates)
+            foreach (var coords in BombExplodesHelper.ExplosionCoordinates)
             {
                 blowUpPos(instance, xPos, yPos, coords.Item1, coords.Item2, initialHeight);
             }
@@ -207,7 +154,7 @@ namespace BombsAway
 
         private static IEnumerator explodeTimer(BombExplodes instance)
         {
-            float timeBeforeExplode = 2.2f;
+            float timeBeforeExplode = 2.1f;
             int xPos = Mathf.RoundToInt(Transform(instance).position.x / 2f);
             int yPos = Mathf.RoundToInt(Transform(instance).position.z / 2f);
             int initialHeight = WorldManager.manageWorld.heightMap[xPos, yPos];
@@ -245,7 +192,7 @@ namespace BombsAway
             instance.hideOnExplode.SetActive(false);
             if (baseIsServer(instance))
             {
-                List<int> multiTileObjects = new List<int>();
+                var multiTileObjects = new List<int>();
                 blowUpPos(instance, xPos, yPos, 0, 0, initialHeight);
                 Collider[] array = Physics.OverlapSphere(Transform(instance).position - Vector3.up * 1.5f, 4f, LayerMask.GetMask("Default") | instance.damageLayer);
                 for (int i = 0; i < array.Length; i++)
@@ -254,7 +201,7 @@ namespace BombsAway
                     if (component)
                     {
                         attackAndDoDamage(component, 25, Transform(instance), 20f);
-                        if (_bombModeActive == BombModes.Vanilla)
+                        if (BombExplodesHelper.BombModeActive == BombModes.Vanilla)
                             component.setOnFire();
                     }
 
@@ -280,32 +227,20 @@ namespace BombsAway
             ParticleManager.manage.emitRedAttackParticle(particlePos + Vector3.forward * 2f, 25);
             ParticleManager.manage.emitRedAttackParticle(particlePos + Vector3.back * 2f, 25);
 
-            int radius = _explosionRadius;
-
             if (baseIsServer(instance))
             {
-                baseStartCoroutine(instance, blowUpPosCoroutine(instance, radius, xPos, yPos, initialHeight));
-                // for (int i = -radius; i <= radius; i++)
-                // {
-                //     for (int j = -radius; j <= radius; j++)
-                //     {
-                //         if (i == 0 && j == 0)
-                //             continue;
-
-                //         blowUpPos(instance, xPos, yPos, i, j, initialHeight);
-                //     }
-                // }
+                baseStartCoroutine(instance, blowUpPosCoroutine(instance, xPos, yPos, initialHeight));
             }
             yield return new WaitForSeconds(0.05f);
             instance.hideOnExplode.gameObject.SetActive(false);
-            ParticleManager.manage.emitParticleAtPosition(ParticleManager.manage.allParts[3], particlePos + Vector3.left * 2f, 5);
-            ParticleManager.manage.emitParticleAtPosition(ParticleManager.manage.allParts[3], particlePos + Vector3.right * 2f, 5);
-            ParticleManager.manage.emitParticleAtPosition(ParticleManager.manage.allParts[3], particlePos + Vector3.forward * 2f, 5);
-            ParticleManager.manage.emitParticleAtPosition(ParticleManager.manage.allParts[3], particlePos + Vector3.back * 2f, 5);
-            ParticleManager.manage.emitParticleAtPosition(ParticleManager.manage.allParts[3], particlePos + Vector3.left * 2f, 5);
-            ParticleManager.manage.emitParticleAtPosition(ParticleManager.manage.allParts[3], particlePos + Vector3.right * 2f, 5);
-            ParticleManager.manage.emitParticleAtPosition(ParticleManager.manage.allParts[3], particlePos + Vector3.forward * 2f, 5);
-            ParticleManager.manage.emitParticleAtPosition(ParticleManager.manage.allParts[3], particlePos + Vector3.back * 2f, 5);
+            ParticleManager.manage.emitParticleAtPosition(ParticleManager.manage.allParts[3], particlePos + Vector3.left * 2f, 10);
+            ParticleManager.manage.emitParticleAtPosition(ParticleManager.manage.allParts[3], particlePos + Vector3.right * 2f, 10);
+            ParticleManager.manage.emitParticleAtPosition(ParticleManager.manage.allParts[3], particlePos + Vector3.forward * 2f, 10);
+            ParticleManager.manage.emitParticleAtPosition(ParticleManager.manage.allParts[3], particlePos + Vector3.back * 2f, 10);
+            ParticleManager.manage.emitParticleAtPosition(ParticleManager.manage.allParts[3], particlePos + Vector3.left * 2f, 10);
+            ParticleManager.manage.emitParticleAtPosition(ParticleManager.manage.allParts[3], particlePos + Vector3.right * 2f, 10);
+            ParticleManager.manage.emitParticleAtPosition(ParticleManager.manage.allParts[3], particlePos + Vector3.forward * 2f, 10);
+            ParticleManager.manage.emitParticleAtPosition(ParticleManager.manage.allParts[3], particlePos + Vector3.back * 2f, 10);
             if (baseIsServer(instance))
             {
                 yield return new WaitForSeconds(0.5f);
@@ -355,12 +290,5 @@ namespace BombsAway
         {
             return null;
         }
-    }
-
-    public enum BombModes
-    {
-        Vanilla,
-        Flowers,
-        Silly
     }
 }

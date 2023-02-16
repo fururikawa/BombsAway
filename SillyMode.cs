@@ -18,7 +18,13 @@ namespace BombsAway
                 if (_possibleTileObjects == null)
                 {
                     _possibleTileObjects = WorldManager.manageWorld.allObjectSettings
-                        .Where(t => !t.isMultiTileObject && !t.isFence && !t.isFlowerBed && t.canBePickedUp && (t.tileObjectId < 309 || t.tileObjectId > 312));
+                        .Where(t => !t.isMultiTileObject && 
+                            !t.isFence && 
+                            !t.isFlowerBed && 
+                            !t.GetComponent<TileObjectConnect>() &&
+                            t.canBePickedUp && 
+                            (t.tileObjectId < 309 || t.tileObjectId > 313) &&
+                            t.tileObjectId != 343);
                     _possibleTileObjectsCount = _possibleTileObjects.Count();
                 }
 
