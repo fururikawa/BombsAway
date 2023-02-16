@@ -21,6 +21,7 @@ public class Plugin : BaseUnityPlugin
     private ConfigEntry<KeyCode> _modeSwapKey;
     private ConfigEntry<KeyCode> _keyModifier;
     private ConfigEntry<bool> _isInifiniteMode;
+    private static int NexusID = 184;
 
     public Plugin()
     {
@@ -28,6 +29,7 @@ public class Plugin : BaseUnityPlugin
         _isInifiniteMode = Config.Bind<bool>("Main", "Infinite Bombs", false, "Remember Uncle Ben's words.");
         _modeSwapKey = Config.Bind<KeyCode>("Controls", "Switch Modes Key", KeyCode.B, "Key to switch between bomb modes.");
         _keyModifier = Config.Bind<KeyCode>("Controls", "Switch Modes Key Modifier", KeyCode.LeftShift, "Optional modifier for the key above.");
+        Config.Bind<int>("Other", "NexusID", NexusID);
     }
     private void Awake()
     {
