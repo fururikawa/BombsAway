@@ -1,13 +1,10 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Reflection.Emit;
 using BepInEx;
 using BepInEx.Configuration;
 using HarmonyLib;
-using Mirror;
 using UnityEngine;
 
 
@@ -33,8 +30,10 @@ public class Plugin : BaseUnityPlugin
     }
     private void Awake()
     {
-        BombExplodesHelper.ExplosionRadius = Mathf.Clamp(_explosionRadius.Value, 1, 5);
-        BombExplodesHelper.IsInfiniteBombs = _isInifiniteMode.Value;
+        RegisterAllModes();
+
+        BombManager.ExplosionRadius = Mathf.Clamp(_explosionRadius.Value, 1, 5);
+        BombManager.IsInfiniteBombs = _isInifiniteMode.Value;
         _harmony = Harmony.CreateAndPatchAll(typeof(BombExplodesPatch), "fururikawa.BombsAway");
 
         // Plugin startup logic
@@ -44,7 +43,7 @@ public class Plugin : BaseUnityPlugin
 
     private void Start()
     {
-        BombExplodesHelper.ComputeExplosionGrid();
+        BombManager.Instance.ComputeExplosionGrid();
     }
 
     private void Update()
@@ -66,8 +65,8 @@ public class Plugin : BaseUnityPlugin
                     if (!localPlayer.myPickUp.pickUp() &&
                         !localPlayer.myInteract.tileInteract((int)localPlayer.myInteract.selectedTile.x, (int)localPlayer.myInteract.selectedTile.y))
                     {
-                        BombExplodesHelper.InvertBombState();
-                        String notification = BombExplodesHelper.IsInverted ? "Bomb set to make hills!" : "Bomb set to make holes!";
+                        BombManager.Instance.InvertBombState();
+                        String notification = BombManager.Instance.IsInverted ? "Bomb set to make hills!" : "Bomb set to make holes!";
                         NotificationManager.manage.createChatNotification(notification, false);
                         SoundManager.manage.play2DSound(SoundManager.manage.signTalk);
                     }
@@ -75,8 +74,8 @@ public class Plugin : BaseUnityPlugin
 
                 if ((_keyModifier.Value == KeyCode.None || Input.GetKey(_keyModifier.Value)) && Input.GetKeyDown(_modeSwapKey.Value))
                 {
-                    BombExplodesHelper.CycleBombMode();
-                    NotificationManager.manage.createChatNotification($"{BombExplodesHelper.GetBombModeActive()} Mode now in effect!", true);
+                    BombManager.Instance.CycleBombMode();
+                    NotificationManager.manage.createChatNotification($"{BombManager.Instance.GetActiveMode().Name} Mode now in effect!", true);
                     SoundManager.manage.play2DSound(SoundManager.manage.signTalk);
                 }
             }
@@ -86,5 +85,24 @@ public class Plugin : BaseUnityPlugin
     private void OnDestroy()
     {
         _harmony.UnpatchSelf();
+    }
+
+    private void RegisterAllModes()
+    {
+        BombManager.Instance.Register(new VanillaMode());
+
+        IEnumerable<Type> objectModes = AppDomain.CurrentDomain.GetAssemblies()
+                    .SelectMany<Assembly, Type>(x => x.GetTypes())
+                    .Where(x => x.IsSubclassOf(typeof(BaseObjectMode)));
+
+        foreach (Type mode in objectModes)
+        {
+            if (mode == typeof(VanillaMode))
+                continue;
+
+            BaseObjectMode modeInstance = (BaseObjectMode)Activator.CreateInstance(mode);
+            BombManager.Instance.Register(modeInstance);
+            Debug.Log($"{modeInstance.Name} registered!");
+        }
     }
 }

@@ -1,104 +1,91 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
+using System.Collections;
+using UnityEngine;
 
 namespace BombsAway
 {
-    public static class BombExplodesHelper
+    public class BombExplodesHelper
     {
-        public static int ExplosionRadius = 3;
-        public static bool IsInfiniteBombs = false;
+        private static BombExplodesHelper _instance;
 
-        public static bool IsInverted
+        public static BombExplodesHelper Instance
         {
             get
             {
-                return _isInverted;
-            }
-        }
-        public static BombModes BombModeActive
-        {
-            get
-            {
-                return _bombModeActive;
+                if (_instance == null)
+                    _instance = new BombExplodesHelper();
+                return _instance;
             }
         }
 
-        public static IEnumerable<Tuple<int, int>> ExplosionCoordinates
+        public void blowUpPos(BombExplodes instance, int xPos, int yPos, int xDif, int yDif, int initialHeight)
         {
-            get
-            {
-                return _explosionCoordinates;
-            }
-        }
+            int newX = xPos + xDif;
+            int newY = yPos + yDif;
 
-        public static void ComputeExplosionGrid()
-        {
-            var coordinates = new List<Tuple<int, int, int>>();
-            for (int i = -ExplosionRadius; i <= ExplosionRadius; i++)
+            if (WorldManager.manageWorld.isPositionOnMap(newX, newY) && (shouldDestroyOnTile(newX, newY) || WorldManager.manageWorld.onTileMap[newX, newY] == -1))
             {
-                for (int j = -ExplosionRadius; j <= ExplosionRadius; j++)
+                if (WorldManager.manageWorld.onTileMap[newX, newY] != -1)
                 {
-                    if (i == 0 && j == 0)
-                        continue;
-                    coordinates.Add(new Tuple<int, int, int>(i, j, Math.Abs(i) + Math.Abs(j))); // Store x, y, and distance from center
+                    NetworkMapSharer.share.RpcUpdateOnTileObject(-1, newX, newY);
                 }
+
+                updateTileHeight(initialHeight, newX, newY, xDif, yDif);
+
+                placeWorldObject(newX, newY, BombManager.Instance.GetActiveMode().NextRandomTileObjectID());
             }
-            _explosionCoordinates = coordinates.OrderBy(x => x.Item3)
-                .Select(x => new Tuple<int, int>(x.Item1, x.Item2))
-                .ToArray();
         }
 
-        public static void InvertBombState()
+        private void placeWorldObject(int xPos, int yPos, int tileObjectId)
         {
-            _isInverted = !_isInverted;
-        }
-
-        public static void CycleBombMode()
-        {
-            switch (_bombModeActive)
+            if (tileObjectId != -1)
             {
-                case BombModes.Vanilla:
-                    _bombModeActive = BombModes.Flowers;
-                    break;
-                case BombModes.Flowers:
-                    _bombModeActive = BombModes.Silly;
-                    break;
-                case BombModes.Silly:
-                    _bombModeActive = BombModes.Vanilla;
-                    break;
+                if (WorldManager.manageWorld.allObjects[tileObjectId].tileObjectGrowthStages)
+                {
+                    var growthStages = WorldManager.manageWorld.allObjects[tileObjectId].tileObjectGrowthStages.objectStages;
+                    WorldManager.manageWorld.onTileStatusMap[xPos, yPos] = UnityEngine.Random.Range(0, growthStages.Length);
+                }
+
+                WorldManager.manageWorld.onTileMap[xPos, yPos] = tileObjectId;
             }
         }
 
-        public static String GetBombModeActive()
+        public IEnumerator blowUpPosCoroutine(BombExplodes instance, int xPos, int yPos, int initialHeight)
         {
-            switch (_bombModeActive)
+            foreach (var coords in BombManager.Instance.ExplosionCoordinates)
             {
-                case BombModes.Vanilla:
-                    return "Vanilla";
-                case BombModes.Flowers:
-                    return "Flower";
-                case BombModes.Silly:
-                    return "Silly";
+                blowUpPos(instance, xPos, yPos, coords.Item1, coords.Item2, initialHeight);
             }
-            return "Vanilla";
+            yield break;
         }
 
-        public static int Fibo(int index)
+        private void updateTileHeight(int initialHeight, int newX, int newY, int xDif, int yDif)
         {
-            return _fibonacciNumbers[index];
+            int distance = Mathf.Abs(xDif) + Mathf.Abs(yDif);
+            int heightDif = WorldManager.manageWorld.heightMap[newX, newY] - initialHeight;
+            int newHeight = 0;
+            if (BombManager.Instance.IsInverted)
+            {
+                if (heightDif <= BombManager.ExplosionRadius && heightDif >= -1 - BombManager.ExplosionRadius + distance)
+                    newHeight = Mathf.Clamp(BombManager.ExplosionRadius * 2 - BombManager.Instance.Fibo(distance), 0, BombManager.ExplosionRadius + 1);
+            }
+            else
+            {
+                if (heightDif >= 0 && heightDif <= 1 + BombManager.ExplosionRadius - distance)
+                    newHeight = -Mathf.Clamp((BombManager.ExplosionRadius * 2 - BombManager.Instance.Fibo(distance)), 0, BombManager.ExplosionRadius + 1);
+            }
+            NetworkMapSharer.share.RpcUpdateTileHeight(newHeight, newX, newY);
         }
 
-        private static bool _isInverted = false;
-        private static BombModes _bombModeActive = BombModes.Vanilla;
-        private static int[] _fibonacciNumbers = new int[] { 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89 };
-        private static Tuple<int, int>[] _explosionCoordinates;
-    }
-
-    public enum BombModes
-    {
-        Vanilla,
-        Flowers,
-        Silly
+        private bool shouldDestroyOnTile(int xPos, int yPos)
+        {
+            return WorldManager.manageWorld.onTileMap[xPos, yPos] > -1 &&
+                (WorldManager.manageWorld.allObjectSettings[WorldManager.manageWorld.onTileMap[xPos, yPos]].isWood ||
+                    WorldManager.manageWorld.allObjectSettings[WorldManager.manageWorld.onTileMap[xPos, yPos]].isHardWood ||
+                    WorldManager.manageWorld.allObjectSettings[WorldManager.manageWorld.onTileMap[xPos, yPos]].isSmallPlant ||
+                    WorldManager.manageWorld.allObjectSettings[WorldManager.manageWorld.onTileMap[xPos, yPos]].isStone ||
+                    WorldManager.manageWorld.allObjectSettings[WorldManager.manageWorld.onTileMap[xPos, yPos]].isHardStone ||
+                    (WorldManager.manageWorld.allObjectSettings[WorldManager.manageWorld.onTileMap[xPos, yPos]].isHardStone &&
+                        WorldManager.manageWorld.allObjectSettings[WorldManager.manageWorld.onTileMap[xPos, yPos]].isMultiTileObject));
+        }
     }
 }

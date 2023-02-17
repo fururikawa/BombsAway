@@ -1,43 +1,29 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace BombsAway
 {
-    public static class FlowerMode
+    public sealed class FlowerMode : BaseObjectMode
     {
-        private static MapRand _random;
-        private static int[] FlowerIDs = new int[] { 201, 202, 203, 204, 205 };
-        private static Queue<int> _nextFlowerIDs = new Queue<int>();
-
-        public static IEnumerator GetNextFlowerIDsToUse(int quantity)
+        public sealed override IEnumerable<int> PossibleTileObjects
         {
-            for (int i = 0; i < quantity; i++)
+            get
             {
-                _nextFlowerIDs.Enqueue(GetRandomFlowerID());
+                if (_possibleTileObjects == null)
+                {
+                    _possibleTileObjects = WorldManager.manageWorld.allObjectSettings
+                        .Where(t => t.beautyType == TownManager.TownBeautyType.Flowers &&
+                            t.isSmallPlant &&
+                            t.tileObjectId != 434)
+                        .Select(t => t.tileObjectId);
+                }
+
+                return _possibleTileObjects;
             }
-            yield break;
         }
 
-        public static int NextFlowerId()
-        {
-            if (_nextFlowerIDs.Count > 0)
-                return _nextFlowerIDs.Dequeue();
-            return GetRandomFlowerID();
-        }
-
-        private static int GetRandomFlowerID()
-        {
-            return FlowerIDs[Rng().Range(0, FlowerIDs.Length)];
-        }
-
-        private static MapRand Rng()
-        {
-            if (_random == null)
-            {
-                _random = new MapRand(Random.RandomRangeInt(-16545, 16545));
-            }
-            return _random;
-        }
+        public sealed override string Name => "Flowery";
     }
 }
