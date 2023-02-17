@@ -42,7 +42,7 @@ namespace BombsAway
         public bool IsInfiniteBombs
         {
             get => _isInfiniteBombs;
-            set => _isInfiniteBombs = value;
+            internal set => _isInfiniteBombs = value;
         }
 
         public BaseObjectMode GetActiveMode()
@@ -65,12 +65,14 @@ namespace BombsAway
             get => _explosionCoordinates;
         }
 
-        public void ToggleBombState()
+        
+
+        internal void ToggleBombState()
         {
             _isInverted = !_isInverted;
         }
 
-        public void CycleBombModes()
+        internal void CycleBombModes()
         {
             do
             {
@@ -92,7 +94,7 @@ namespace BombsAway
             GenerateExplosionGrid();
         }
 
-        public int Fibonacci(int distance)
+        internal int Fibonacci(int distance)
         {
             return _fibonacci[distance];
         }
