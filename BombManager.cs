@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine;
 
 namespace BombsAway
 {
@@ -26,6 +27,7 @@ namespace BombsAway
             _currentMode = 0;
             _isInverted = false;
             _radius = 2;
+            _isInfiniteBombs = false;
         }
 
         public int Radius
@@ -37,11 +39,20 @@ namespace BombsAway
         {
             get => _isInverted;
         }
-        public bool IsInfiniteBombs;
+        public bool IsInfiniteBombs
+        {
+            get => _isInfiniteBombs;
+            set => _isInfiniteBombs = value;
+        }
 
         public BaseObjectMode GetActiveMode()
         {
             return _bombModes.ElementAt(_currentMode);
+        }
+
+        public BaseObjectMode FindModeByName(String name)
+        {
+            return _bombModes.FirstOrDefault(x => x.Name == name);
         }
 
         public IEnumerable<BaseObjectMode> BombModes
@@ -54,12 +65,6 @@ namespace BombsAway
             get => _explosionCoordinates;
         }
 
-        public int[] Fibonacci
-        {
-            get => _fibonacci;
-            set => _fibonacci = value;
-        }
-
         public void ToggleBombState()
         {
             _isInverted = !_isInverted;
@@ -67,18 +72,29 @@ namespace BombsAway
 
         public void CycleBombModes()
         {
-            if (_currentMode == _bombModes.Count - 1)
+            do
             {
-                _currentMode = 0;
-                return;
+                if (_currentMode == _bombModes.Count - 1)
+                {
+                    _currentMode = 0;
+                }
+                else
+                {
+                    _currentMode++;
+                }
             }
-            _currentMode++;
+            while (!GetActiveMode().Enabled);
         }
 
         public void SetRadius(uint newRadius)
         {
             _radius = (int)newRadius;
             GenerateExplosionGrid();
+        }
+
+        public int Fibonacci(int distance)
+        {
+            return _fibonacci[distance];
         }
 
         internal void Register(BaseObjectMode newMode)
@@ -110,5 +126,6 @@ namespace BombsAway
         private int[] _fibonacci;
         private int _currentMode;
         private int _radius;
+        private bool _isInfiniteBombs;
     }
 }

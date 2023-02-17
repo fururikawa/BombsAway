@@ -25,7 +25,7 @@ namespace BombsAway
         {
             foreach (var mode in BombManager.Instance.BombModes)
             {
-                var _ = mode.PossibleTileObjects;
+                mode.Setup();
             }
         }
 

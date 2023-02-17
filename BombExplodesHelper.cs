@@ -19,7 +19,10 @@ namespace BombsAway
 
                 updateTileHeight(initialHeight, newX, newY, xDif, yDif);
 
-                placeWorldObject(newX, newY, BombManager.Instance.GetActiveMode().NextRandomTileObjectID());
+                var bombModeActive = BombManager.Instance.GetActiveMode();
+                var randomTileObjectId = bombModeActive.NextRandomTileObjectID();
+                NetworkMapSharer.share.RpcUpdateOnTileObject(randomTileObjectId, newX, newY);
+                NetworkMapSharer.share.RpcUpdateTileType(bombModeActive.GetTileType(xPos, yPos, newX, newY, randomTileObjectId), newX, newY);
             }
         }
 
@@ -64,16 +67,18 @@ namespace BombsAway
             int heightDif = WorldManager.manageWorld.heightMap[newX, newY] - initialHeight;
             int newHeight = 0;
             int radius = BombManager.Instance.Radius;
-            int distanceFactor = BombManager.Instance.Fibonacci[distance];
+            int distanceFactor = BombManager.Instance.GetActiveMode().DistanceFactorFunction(distance);
+            float modifier = BombManager.Instance.GetActiveMode().ExplosionModifier;
+
             if (BombManager.Instance.IsInverted)
             {
                 if (heightDif <= radius && heightDif >= -1 - radius + distance)
-                    newHeight = Mathf.Clamp(radius * 2 - distanceFactor, 0, radius + 1);
+                    newHeight = Mathf.RoundToInt(modifier * Mathf.Clamp(radius * 2 - distanceFactor, 0, radius + 1));
             }
             else
             {
                 if (heightDif >= 0 && heightDif <= 1 + radius - distance)
-                    newHeight = -Mathf.Clamp((radius * 2 - distanceFactor), 0, radius + 1);
+                    newHeight = -Mathf.RoundToInt(modifier * Mathf.Clamp((radius * 2 - distanceFactor), 0, radius + 1));
             }
             NetworkMapSharer.share.RpcUpdateTileHeight(newHeight, newX, newY);
         }
