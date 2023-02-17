@@ -3,7 +3,7 @@ using System.Linq;
 
 namespace BombsAway
 {
-    public sealed class SillyMode : BaseObjectMode
+    internal sealed class SillyMode : BaseObjectMode
     {
         public sealed override IEnumerable<int> PossibleTileObjects
         {

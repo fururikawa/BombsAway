@@ -18,55 +18,81 @@ namespace BombsAway
             }
         }
 
-        public static int ExplosionRadius = 3;
-        public static bool IsInfiniteBombs = false;
-
         private BombManager()
         {
-            bombModes = new List<BaseObjectMode>();
-            currentMode = 0;
+            _bombModes = new List<BaseObjectMode>();
+            _explosionCoordinates = new Tuple<int, int>[] { };
+            _fibonacci = new int[] { 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89 };
+            _currentMode = 0;
+            _isInverted = false;
+            _radius = 2;
         }
 
-        public void Register(BaseObjectMode newMode)
+        public int Radius
         {
-            bombModes.Add(newMode);
-        }
-
-        public BaseObjectMode GetActiveMode()
-        {
-            return bombModes.ElementAt(currentMode);
-        }
-
-        public IEnumerable<BaseObjectMode> BombModes
-        {
-            get
-            {
-                return bombModes;
-            }
+            get => _radius;
         }
 
         public bool IsInverted
         {
-            get
-            {
-                return _isInverted;
-            }
+            get => _isInverted;
+        }
+        public bool IsInfiniteBombs;
+
+        public BaseObjectMode GetActiveMode()
+        {
+            return _bombModes.ElementAt(_currentMode);
+        }
+
+        public IEnumerable<BaseObjectMode> BombModes
+        {
+            get => _bombModes;
         }
 
         public IEnumerable<Tuple<int, int>> ExplosionCoordinates
         {
-            get
-            {
-                return _explosionCoordinates;
-            }
+            get => _explosionCoordinates;
         }
 
-        public void ComputeExplosionGrid()
+        public int[] Fibonacci
+        {
+            get => _fibonacci;
+            set => _fibonacci = value;
+        }
+
+        public void ToggleBombState()
+        {
+            _isInverted = !_isInverted;
+        }
+
+        public void CycleBombModes()
+        {
+            if (_currentMode == _bombModes.Count - 1)
+            {
+                _currentMode = 0;
+                return;
+            }
+            _currentMode++;
+        }
+
+        public void SetRadius(uint newRadius)
+        {
+            _radius = (int)newRadius;
+            GenerateExplosionGrid();
+        }
+
+        internal void Register(BaseObjectMode newMode)
+        {
+            _bombModes.Add(newMode);
+        }
+
+        internal void GenerateExplosionGrid()
         {
             var coordinates = new List<Tuple<int, int, int>>();
-            for (int i = -ExplosionRadius; i <= ExplosionRadius; i++)
+
+            for (int i = -_radius; i <= _radius; i++)
             {
-                for (int j = -ExplosionRadius; j <= ExplosionRadius; j++)
+                for (int j = -_radius; j <= _radius; j++)
                 {
                     if (i == 0 && j == 0)
                         continue;
@@ -78,29 +104,11 @@ namespace BombsAway
                 .ToArray();
         }
 
-        public void InvertBombState()
-        {
-            _isInverted = !_isInverted;
-        }
-
-        public void CycleBombMode()
-        {
-            if (currentMode == bombModes.Count - 1)
-            {
-                currentMode = 0;
-                return;
-            }
-            currentMode++;
-        }
-        public int Fibo(int index)
-        {
-            return _fibonacciNumbers[index];
-        }
-
-        private bool _isInverted = false;
-        private int[] _fibonacciNumbers = new int[] { 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89 };
+        private bool _isInverted;
         private Tuple<int, int>[] _explosionCoordinates;
-        private IList<BaseObjectMode> bombModes;
-        private int currentMode;
+        private IList<BaseObjectMode> _bombModes;
+        private int[] _fibonacci;
+        private int _currentMode;
+        private int _radius;
     }
 }

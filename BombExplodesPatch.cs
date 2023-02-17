@@ -10,18 +10,18 @@ using UnityEngine;
 namespace BombsAway
 {
     [HarmonyPatch]
-    public static class BombExplodesPatch
+    internal static class BombExplodesPatch
     {
         [HarmonyPatch(typeof(CraftingManager), "Start")]
         [HarmonyPostfix]
-        public static void SetRecipeAmounts()
+        private static void SetRecipeAmounts()
         {
             Inventory.inv.allItems[277].craftable.recipeGiveThisAmount = 8;
         }
 
         [HarmonyPatch(typeof(WorldManager), "Start")]
         [HarmonyPostfix]
-        public static void PopulatePossibleIDReferences()
+        private static void PopulatePossibleIDReferences()
         {
             foreach (var mode in BombManager.Instance.BombModes)
             {
@@ -31,24 +31,24 @@ namespace BombsAway
 
         [HarmonyPatch(typeof(Inventory), "consumeItemInHand")]
         [HarmonyPrefix]
-        public static bool consumeItemInHandPrefix(Inventory __instance)
+        private static bool ConsumeItemInHandPrefix(Inventory __instance)
         {
-            return !(BombManager.IsInfiniteBombs && __instance.invSlots[__instance.selectedSlot].itemNo == 277);
+            return !(BombManager.Instance.IsInfiniteBombs && __instance.invSlots[__instance.selectedSlot].itemNo == 277);
         }
 
         [HarmonyPatch(typeof(BombExplodes), "explodeTimer")]
         [HarmonyPrefix]
-        public static bool explodeTimerPrefix(BombExplodes __instance, ref IEnumerator __result)
+        private static bool ExplodeTimerPrefix(BombExplodes __instance, ref IEnumerator __result)
         {
             var activeMode = BombManager.Instance.GetActiveMode();
-            baseStartCoroutine(__instance, activeMode.GetNextTilesToUse((int)Mathf.Pow((BombManager.ExplosionRadius * 2 + 1), 2)));
+            baseStartCoroutine(__instance, activeMode.GetNextTilesToUse(BombManager.Instance.ExplosionCoordinates.Count()));
 
             __result = explodeTimer(__instance);
 
             return false;
         }
 
-        private static void attackAndDoDamage(Damageable instance, int damageToDeal, Transform attackedBy, float knockBackAmount = 2.5f)
+        private static void AttackAndDoDamage(Damageable instance, int damageToDeal, Transform attackedBy, float knockBackAmount = 2.5f)
         {
             bool canBeDamaged = (bool)typeof(Damageable).GetField("canBeDamaged", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(instance);
             AnimalAI myAnimalAi = (AnimalAI)typeof(Damageable).GetField("myAnimalAi", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(instance);
@@ -111,14 +111,14 @@ namespace BombsAway
             if (baseIsServer(instance))
             {
                 var multiTileObjects = new List<int>();
-                BombExplodesHelper.Instance.blowUpPos(instance, xPos, yPos, 0, 0, initialHeight);
+                BombExplodesHelper.ExplodeTile(instance, xPos, yPos, 0, 0, initialHeight);
                 Collider[] array = Physics.OverlapSphere(Transform(instance).position - Vector3.up * 1.5f, 4f, LayerMask.GetMask("Default") | instance.damageLayer);
                 for (int i = 0; i < array.Length; i++)
                 {
                     Damageable component = array[i].transform.root.GetComponent<Damageable>();
                     if (component)
                     {
-                        attackAndDoDamage(component, 25, Transform(instance), 20f);
+                        AttackAndDoDamage(component, 25, Transform(instance), 20f);
                         if (BombManager.Instance.GetActiveMode().Name == "Vanilla")
                             component.setOnFire();
                     }
@@ -147,7 +147,7 @@ namespace BombsAway
 
             if (baseIsServer(instance))
             {
-                baseStartCoroutine(instance, BombExplodesHelper.Instance.blowUpPosCoroutine(instance, xPos, yPos, initialHeight));
+                baseStartCoroutine(instance, BombExplodesHelper.StartExplosion(instance, xPos, yPos, initialHeight));
             }
             yield return new WaitForSeconds(0.05f);
             instance.hideOnExplode.gameObject.SetActive(false);
@@ -169,42 +169,42 @@ namespace BombsAway
 
         [HarmonyReversePatch]
         [HarmonyPatch(typeof(Component), "transform", MethodType.Getter)]
-        public static Transform Transform(object instance)
+        private static Transform Transform(object instance)
         {
             return null;
         }
 
         [HarmonyReversePatch]
         [HarmonyPatch(typeof(Component), nameof(Component.gameObject), MethodType.Getter)]
-        public static GameObject baseGameObject(object instance)
+        private static GameObject baseGameObject(object instance)
         {
             return null;
         }
 
         [HarmonyReversePatch]
         [HarmonyPatch(typeof(MonoBehaviour), nameof(MonoBehaviour.StartCoroutine), typeof(IEnumerator))]
-        public static Coroutine baseStartCoroutine(object instance, IEnumerator routine)
+        private static Coroutine baseStartCoroutine(object instance, IEnumerator routine)
         {
             return null;
         }
 
         [HarmonyReversePatch]
         [HarmonyPatch(typeof(MonoBehaviour), nameof(MonoBehaviour.StartCoroutine), typeof(String))]
-        public static Coroutine baseStartCoroutineStr(object instance, String routine)
+        private static Coroutine baseStartCoroutineStr(object instance, String routine)
         {
             return null;
         }
 
         [HarmonyReversePatch]
         [HarmonyPatch(typeof(NetworkBehaviour), nameof(NetworkBehaviour.isServer), MethodType.Getter)]
-        public static bool baseIsServer(object instance)
+        private static bool baseIsServer(object instance)
         {
             return false;
         }
 
         [HarmonyReversePatch]
         [HarmonyPatch(typeof(BombExplodes), "explosionLightFlash")]
-        public static IEnumerator explosionLightFlash(object instance)
+        private static IEnumerator explosionLightFlash(object instance)
         {
             return null;
         }

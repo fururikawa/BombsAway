@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace BombsAway
 {
-    public sealed class VanillaMode : BaseObjectMode
+    internal sealed class VanillaMode : BaseObjectMode
     {
         public sealed override IEnumerable<int> PossibleTileObjects
         {

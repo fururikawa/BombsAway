@@ -30,10 +30,6 @@ public class Plugin : BaseUnityPlugin
     }
     private void Awake()
     {
-        RegisterAllModes();
-
-        BombManager.ExplosionRadius = Mathf.Clamp(_explosionRadius.Value, 1, 5);
-        BombManager.IsInfiniteBombs = _isInifiniteMode.Value;
         _harmony = Harmony.CreateAndPatchAll(typeof(BombExplodesPatch), "fururikawa.BombsAway");
 
         // Plugin startup logic
@@ -43,7 +39,9 @@ public class Plugin : BaseUnityPlugin
 
     private void Start()
     {
-        BombManager.Instance.ComputeExplosionGrid();
+        RegisterAllModes();
+        BombManager.Instance.IsInfiniteBombs = _isInifiniteMode.Value;
+        BombManager.Instance.SetRadius((uint)Mathf.Clamp(_explosionRadius.Value, 1, 5));
     }
 
     private void Update()
@@ -65,8 +63,10 @@ public class Plugin : BaseUnityPlugin
                     if (!localPlayer.myPickUp.pickUp() &&
                         !localPlayer.myInteract.tileInteract((int)localPlayer.myInteract.selectedTile.x, (int)localPlayer.myInteract.selectedTile.y))
                     {
-                        BombManager.Instance.InvertBombState();
-                        String notification = BombManager.Instance.IsInverted ? "Bomb set to make hills!" : "Bomb set to make holes!";
+                        BombManager.Instance.ToggleBombState();
+                        String notification = BombManager.Instance.IsInverted ? 
+                            "Bomb set to make hills!" : 
+                            "Bomb set to make holes!";
                         NotificationManager.manage.createChatNotification(notification, false);
                         SoundManager.manage.play2DSound(SoundManager.manage.signTalk);
                     }
@@ -74,7 +74,7 @@ public class Plugin : BaseUnityPlugin
 
                 if ((_keyModifier.Value == KeyCode.None || Input.GetKey(_keyModifier.Value)) && Input.GetKeyDown(_modeSwapKey.Value))
                 {
-                    BombManager.Instance.CycleBombMode();
+                    BombManager.Instance.CycleBombModes();
                     NotificationManager.manage.createChatNotification($"{BombManager.Instance.GetActiveMode().Name} Mode now in effect!", true);
                     SoundManager.manage.play2DSound(SoundManager.manage.signTalk);
                 }
@@ -95,14 +95,14 @@ public class Plugin : BaseUnityPlugin
                     .SelectMany<Assembly, Type>(x => x.GetTypes())
                     .Where(x => x.IsSubclassOf(typeof(BaseObjectMode)));
 
-        foreach (Type mode in objectModes)
+        foreach (Type modeType in objectModes)
         {
-            if (mode == typeof(VanillaMode))
+            if (modeType == typeof(VanillaMode))
                 continue;
 
-            BaseObjectMode modeInstance = (BaseObjectMode)Activator.CreateInstance(mode);
-            BombManager.Instance.Register(modeInstance);
-            Debug.Log($"{modeInstance.Name} registered!");
+            BaseObjectMode mode = (BaseObjectMode)Activator.CreateInstance(modeType);
+            BombManager.Instance.Register(mode);
+            Debug.Log($"Registered {mode.Name}!");
         }
     }
 }
