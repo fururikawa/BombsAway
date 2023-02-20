@@ -70,16 +70,21 @@ namespace BombsAway
             int distanceFactor = BombManager.Instance.GetActiveMode().DistanceFactorFunction(distance);
             float modifier = BombManager.Instance.GetActiveMode().ExplosionModifier;
 
-            if (BombManager.Instance.IsInverted)
+            switch (BombManager.Instance.BombState)
             {
-                if (heightDif <= radius && heightDif >= -1 - radius + distance)
-                    newHeight = Mathf.RoundToInt(modifier * Mathf.Clamp(radius * 2 - distanceFactor, 0, radius + 1));
+                case 0:
+                    if (heightDif >= 0 && heightDif <= 1 + radius - distance)
+                        newHeight = -Mathf.RoundToInt(modifier * Mathf.Clamp((radius * 2 - distanceFactor), 0, radius + 1));
+                    break;
+                case 1:
+                    if (heightDif <= radius && heightDif >= -1 - radius + distance)
+                        newHeight = Mathf.RoundToInt(modifier * Mathf.Clamp(radius * 2 - distanceFactor, 0, radius + 1));
+                    break;
+                case 2:
+                    newHeight = -heightDif;
+                    break;
             }
-            else
-            {
-                if (heightDif >= 0 && heightDif <= 1 + radius - distance)
-                    newHeight = -Mathf.RoundToInt(modifier * Mathf.Clamp((radius * 2 - distanceFactor), 0, radius + 1));
-            }
+            
             NetworkMapSharer.share.RpcUpdateTileHeight(newHeight, newX, newY);
         }
     }

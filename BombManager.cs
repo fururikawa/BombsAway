@@ -25,7 +25,7 @@ namespace BombsAway
             _explosionCoordinates = new Tuple<int, int>[] { };
             _fibonacci = new int[] { 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89 };
             _currentMode = 0;
-            _isInverted = false;
+            _bombState = 0;
             _radius = 2;
             _isInfiniteBombs = false;
         }
@@ -35,9 +35,9 @@ namespace BombsAway
             get => _radius;
         }
 
-        public bool IsInverted
+        public int BombState
         {
-            get => _isInverted;
+            get => _bombState;
         }
         public bool IsInfiniteBombs
         {
@@ -63,13 +63,14 @@ namespace BombsAway
         public IEnumerable<Tuple<int, int>> ExplosionCoordinates
         {
             get => _explosionCoordinates;
-        }
-
-        
+        }        
 
         internal void ToggleBombState()
         {
-            _isInverted = !_isInverted;
+            if (_bombState == 3)
+                _bombState = 0;
+            else
+                _bombState++;
         }
 
         internal void CycleBombModes()
@@ -122,7 +123,7 @@ namespace BombsAway
                 .ToArray();
         }
 
-        private bool _isInverted;
+        private int _bombState = 0;
         private Tuple<int, int>[] _explosionCoordinates;
         private IList<BaseObjectMode> _bombModes;
         private int[] _fibonacci;

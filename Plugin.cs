@@ -7,32 +7,35 @@ using BepInEx.Configuration;
 using HarmonyLib;
 using UnityEngine;
 
-
 namespace BombsAway;
 
 [BepInPlugin(MyPluginInfo.PLUGIN_GUID, MyPluginInfo.PLUGIN_NAME, MyPluginInfo.PLUGIN_VERSION)]
 public class Plugin : BaseUnityPlugin
 {
     private Harmony _harmony;
-    private ConfigEntry<int> _explosionRadius;
     private ConfigEntry<KeyCode> _modeSwapKey;
+    private ConfigEntry<KeyCode> _stateSwapKey;
+    private ConfigEntry<KeyCode> _radiusUpKey;
+    private ConfigEntry<KeyCode> _radiusDownKey;
     private ConfigEntry<KeyCode> _keyModifier;
     private ConfigEntry<bool> _isInifiniteMode;
     private static int NexusID = 184;
 
     public Plugin()
     {
-        _explosionRadius = Config.Bind<int>("Main", "Explosion Radius", 2, "How many blocks away from center are affected by the explosion. Min (Vanilla): 1, Max: 5.");
         _isInifiniteMode = Config.Bind<bool>("Main", "Infinite Bombs", false, "Remember Uncle Ben's words.");
         _modeSwapKey = Config.Bind<KeyCode>("Controls", "Switch Modes Key", KeyCode.B, "Key to switch between bomb modes.");
-        _keyModifier = Config.Bind<KeyCode>("Controls", "Switch Modes Key Modifier", KeyCode.LeftShift, "Optional modifier for the key above.");
+        _stateSwapKey = Config.Bind<KeyCode>("Controls", "Switch States Key", KeyCode.Mouse2, "Key to switch between bomb states.");
+        _radiusUpKey = Config.Bind<KeyCode>("Controls", "Increase Radius Key", KeyCode.KeypadPlus, "Key to increase the radius of bombs.");
+        _radiusDownKey = Config.Bind<KeyCode>("Controls", "Decrease Radius Key", KeyCode.KeypadMinus, "Key to decrease the radius of bombs.");
+        _keyModifier = Config.Bind<KeyCode>("Controls", "Bombs Away Key Modifier", KeyCode.LeftShift, "Optional modifier for all the keys above.");
         Config.Bind<int>("Other", "NexusID", NexusID);
     }
+
     private void Awake()
     {
         _harmony = Harmony.CreateAndPatchAll(typeof(BombExplodesPatch), "fururikawa.BombsAway");
 
-        // Plugin startup logic
         Logger.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} is loaded!");
         Logger.LogInfo($"Switch Bomb key set to: {_keyModifier.Value} + {_modeSwapKey.Value.ToString()}");
     }
@@ -41,7 +44,6 @@ public class Plugin : BaseUnityPlugin
     {
         RegisterAllModes();
         BombManager.Instance.IsInfiniteBombs = _isInifiniteMode.Value;
-        BombManager.Instance.SetRadius((uint)Mathf.Clamp(_explosionRadius.Value, 1, 5));
     }
 
     private void Update()
@@ -58,18 +60,46 @@ public class Plugin : BaseUnityPlugin
 
             if (slot.itemInSlot == Inventory.inv.allItems[277])
             {
-                if (InputMaster.input.Interact())
+                if ((_keyModifier.Value == KeyCode.None || Input.GetKey(_keyModifier.Value)) && Input.GetKeyDown(_radiusUpKey.Value))
                 {
-                    if (!localPlayer.myPickUp.pickUp() &&
-                        !localPlayer.myInteract.tileInteract((int)localPlayer.myInteract.selectedTile.x, (int)localPlayer.myInteract.selectedTile.y))
+                    if (BombManager.Instance.Radius < 5)
+                        BombManager.Instance.SetRadius((uint)BombManager.Instance.Radius + 1);
+
+                    NotificationManager.manage.createChatNotification("Bomb radius set to " + BombManager.Instance.Radius + "!");
+                    SoundManager.manage.play2DSound(SoundManager.manage.signTalk);
+                }
+                else if ((_keyModifier.Value == KeyCode.None || Input.GetKey(_keyModifier.Value)) && Input.GetKeyDown(_radiusDownKey.Value))
+                {
+                    if (BombManager.Instance.Radius > 1)
+                        BombManager.Instance.SetRadius((uint)BombManager.Instance.Radius - 1);
+
+                    NotificationManager.manage.createChatNotification("Bomb radius set to " + BombManager.Instance.Radius + "!");
+                    SoundManager.manage.play2DSound(SoundManager.manage.signTalk);
+                }
+
+                if ((_keyModifier.Value == KeyCode.None || Input.GetKey(_keyModifier.Value)) && Input.GetKeyDown(_stateSwapKey.Value))
+                {
+                    BombManager.Instance.ToggleBombState();
+
+                    string notification = "";
+                    switch (BombManager.Instance.BombState)
                     {
-                        BombManager.Instance.ToggleBombState();
-                        String notification = BombManager.Instance.IsInverted ? 
-                            "Bomb set to make hills!" : 
-                            "Bomb set to make holes!";
-                        NotificationManager.manage.createChatNotification(notification, false);
-                        SoundManager.manage.play2DSound(SoundManager.manage.signTalk);
+                        case 0:
+                            notification = "Bomb set to make holes!";
+                            break;
+                        case 1:
+                            notification = "Bomb set to make hills!";
+                            break;
+                        case 2:
+                            notification = "Bomb set to level ground!";
+                            break;
+                        case 3:
+                            notification = "Bomb set to safe mode!";
+                            break;
                     }
+
+                    NotificationManager.manage.createChatNotification(notification, false);
+                    SoundManager.manage.play2DSound(SoundManager.manage.signTalk);
                 }
 
                 if ((_keyModifier.Value == KeyCode.None || Input.GetKey(_keyModifier.Value)) && Input.GetKeyDown(_modeSwapKey.Value))

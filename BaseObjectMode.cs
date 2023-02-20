@@ -1,7 +1,7 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System;
 using UnityEngine;
 
 namespace BombsAway
@@ -75,6 +75,7 @@ namespace BombsAway
             }
             yield break;
         }
+
         public int NextRandomTileObjectID()
         {
             if (_nextTilesToUse.Count > 0)
