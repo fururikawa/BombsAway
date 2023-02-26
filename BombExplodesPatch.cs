@@ -41,7 +41,7 @@ namespace BombsAway
         private static bool ExplodeTimerPrefix(BombExplodes __instance, ref IEnumerator __result)
         {
             var activeMode = BombManager.Instance.GetActiveMode();
-            baseStartCoroutine(__instance, activeMode.GetNextTilesToUse(BombManager.Instance.ExplosionCoordinates.Count()));
+            baseStartCoroutine(__instance, activeMode.Prepare());
 
             __result = explodeTimer(__instance);
 
@@ -164,6 +164,7 @@ namespace BombsAway
                 yield return new WaitForSeconds(0.5f);
                 NetworkServer.Destroy(baseGameObject(instance));
             }
+            BombManager.Instance.GetActiveMode().CleanUp();
             yield break;
         }
 

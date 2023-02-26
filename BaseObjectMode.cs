@@ -15,6 +15,7 @@ namespace BombsAway
         protected bool _enabled;
         protected float _explosionModifier;
         protected Func<int, int> _distanceFactorFunction;
+        protected Color[] rainbowColors = new Color[] { new Color(0.58f, 0f, 0.82f), new Color(0.29f, 0, 0.5f), new Color(0, 0.31f, 1f), new Color(0, 1f, 0), new Color(1f, 1f, 0), new Color(1f, 0.64f, 0), new Color(1f, 0, 0.31f) };
 
         protected BaseObjectMode()
         {
@@ -67,16 +68,15 @@ namespace BombsAway
             set => _enabled = value;
         }
 
-        public virtual IEnumerator GetNextTilesToUse(int quantity)
+        public virtual void GetNextTilesToUse(int quantity)
         {
             for (int i = 0; i < quantity; i++)
             {
                 _nextTilesToUse.Enqueue(GetRandomTileObjectID());
             }
-            yield break;
         }
 
-        public int NextRandomTileObjectID()
+        public virtual int GetNextTileObjectID(int xPos, int yPos, int newX, int newY)
         {
             if (_nextTilesToUse.Count > 0)
                 return _nextTilesToUse.Dequeue();
@@ -84,10 +84,66 @@ namespace BombsAway
             return GetRandomTileObjectID();
         }
 
+        public virtual IEnumerator Prepare()
+        {
+            GetNextTilesToUse(BombManager.Instance.ExplosionCoordinates.Count());
+
+            var colorKeys = new GradientColorKey[7];
+            var alphaKeys = new GradientAlphaKey[1] { new GradientAlphaKey(1.0f, 0.0f) };
+
+            for (int i = 0; i < rainbowColors.Length; i++)
+            {
+                colorKeys[i] = new GradientColorKey(rainbowColors[i], i * 0.14f);
+            }
+
+            var rainbow = new Gradient();
+            rainbow.mode = GradientMode.Blend;
+            rainbow.SetKeys(colorKeys, alphaKeys);
+
+            ParticleSystem particleSystem = ParticleManager.manage.explosion;
+            ParticleSystem.MainModule main = particleSystem.main;
+            main.startColor = new ParticleSystem.MinMaxGradient(rainbow);
+            var colorOverLifetime = particleSystem.colorOverLifetime;
+            colorOverLifetime.enabled = false;
+
+            yield break;
+        }
+
         protected virtual int GetRandomTileObjectID()
         {
             return PossibleTileObjects.ElementAt(Rng().Range(0, PossibleTileObjects.Count()));
         }
+
+        public virtual int GetTileHeightDifference(int initialHeight, int newX, int newY, int xDif, int yDif)
+        {
+            int distance = Mathf.Abs(xDif) + Mathf.Abs(yDif);
+            int heightDif = WorldManager.manageWorld.heightMap[newX, newY] - initialHeight;
+            int newHeight = 0;
+            int radius = BombManager.Instance.Radius;
+            int distanceFactor = BombManager.Instance.GetActiveMode().DistanceFactorFunction(distance);
+            float modifier = BombManager.Instance.GetActiveMode().ExplosionModifier;
+
+            switch (BombManager.Instance.BombState)
+            {
+                case 0:
+                    if (heightDif >= 0 && heightDif <= 1 + radius - distance)
+                        newHeight = -Mathf.RoundToInt(modifier * Mathf.Clamp((radius * 2 - distanceFactor), 0, radius + 1));
+                    break;
+                case 1:
+                    if (heightDif <= radius && heightDif >= -1 - radius + distance)
+                        newHeight = Mathf.RoundToInt(modifier * Mathf.Clamp(radius * 2 - distanceFactor, 0, radius + 1));
+                    break;
+                case 2:
+                    newHeight = -heightDif;
+                    break;
+            }
+
+            return newHeight;
+        }
+
+        public virtual void AfterEffects(int xPos, int yPos, int newX, int newY, int tileObjectId) { }
+
+        public virtual void CleanUp() { }
 
         protected virtual MapRand Rng()
         {

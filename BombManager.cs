@@ -28,6 +28,7 @@ namespace BombsAway
             _bombState = 0;
             _radius = 2;
             _isInfiniteBombs = false;
+            _allowBerleyBoxes = false;
         }
 
         public int Radius
@@ -43,6 +44,12 @@ namespace BombsAway
         {
             get => _isInfiniteBombs;
             internal set => _isInfiniteBombs = value;
+        }
+
+        public bool AllowBerleyBoxes
+        {
+            get => _allowBerleyBoxes;
+            internal set => _allowBerleyBoxes = value;
         }
 
         public BaseObjectMode GetActiveMode()
@@ -63,9 +70,9 @@ namespace BombsAway
         public IEnumerable<Tuple<int, int>> ExplosionCoordinates
         {
             get => _explosionCoordinates;
-        }        
+        }
 
-        internal void ToggleBombState()
+        internal void CycleBombState()
         {
             if (_bombState == 3)
                 _bombState = 0;
@@ -123,12 +130,13 @@ namespace BombsAway
                 .ToArray();
         }
 
-        private int _bombState = 0;
+        private int _bombState;
         private Tuple<int, int>[] _explosionCoordinates;
         private IList<BaseObjectMode> _bombModes;
         private int[] _fibonacci;
         private int _currentMode;
         private int _radius;
         private bool _isInfiniteBombs;
+        private bool _allowBerleyBoxes;
     }
 }

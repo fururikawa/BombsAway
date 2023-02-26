@@ -19,16 +19,18 @@ public class Plugin : BaseUnityPlugin
     private ConfigEntry<KeyCode> _radiusDownKey;
     private ConfigEntry<KeyCode> _keyModifier;
     private ConfigEntry<bool> _isInifiniteMode;
+    private ConfigEntry<bool> _allowBerleyBoxes;
     private static int NexusID = 184;
 
     public Plugin()
     {
         _isInifiniteMode = Config.Bind<bool>("Main", "Infinite Bombs", false, "Remember Uncle Ben's words.");
+        _allowBerleyBoxes = Config.Bind<bool>("Silly Mode", "Allow Berley Boxes", false, "Whether you want to allow berley boxes to spawn among silly mode objects. Default is false.");
         _modeSwapKey = Config.Bind<KeyCode>("Controls", "Switch Modes Key", KeyCode.B, "Key to switch between bomb modes.");
-        _stateSwapKey = Config.Bind<KeyCode>("Controls", "Switch States Key", KeyCode.Mouse2, "Key to switch between bomb states.");
+        _stateSwapKey = Config.Bind<KeyCode>("Controls", "Switch States Key", KeyCode.Mouse1, "Key to switch between bomb states.");
         _radiusUpKey = Config.Bind<KeyCode>("Controls", "Increase Radius Key", KeyCode.KeypadPlus, "Key to increase the radius of bombs.");
         _radiusDownKey = Config.Bind<KeyCode>("Controls", "Decrease Radius Key", KeyCode.KeypadMinus, "Key to decrease the radius of bombs.");
-        _keyModifier = Config.Bind<KeyCode>("Controls", "Bombs Away Key Modifier", KeyCode.LeftShift, "Optional modifier for all the keys above.");
+        _keyModifier = Config.Bind<KeyCode>("Controls", "Switch Modes Key Modifier", KeyCode.LeftShift, "Optional modifier for all the keys above.");
         Config.Bind<int>("Other", "NexusID", NexusID);
     }
 
@@ -44,6 +46,8 @@ public class Plugin : BaseUnityPlugin
     {
         RegisterAllModes();
         BombManager.Instance.IsInfiniteBombs = _isInifiniteMode.Value;
+        BombManager.Instance.AllowBerleyBoxes = _allowBerleyBoxes.Value;
+        BombManager.Instance.GenerateExplosionGrid();
     }
 
     private void Update()
@@ -79,7 +83,7 @@ public class Plugin : BaseUnityPlugin
 
                 if ((_keyModifier.Value == KeyCode.None || Input.GetKey(_keyModifier.Value)) && Input.GetKeyDown(_stateSwapKey.Value))
                 {
-                    BombManager.Instance.ToggleBombState();
+                    BombManager.Instance.CycleBombState();
 
                     string notification = "";
                     switch (BombManager.Instance.BombState)

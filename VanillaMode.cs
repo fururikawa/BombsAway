@@ -6,9 +6,9 @@ namespace BombsAway
     internal sealed class VanillaMode : BaseObjectMode
     {
         public sealed override string Name => "Vanilla";
-        public sealed override IEnumerator GetNextTilesToUse(int quantity)
+        public sealed override void GetNextTilesToUse(int quantity)
         {
-            yield break;
+            return;
         }
         public override void Setup()
         {

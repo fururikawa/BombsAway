@@ -12,25 +12,30 @@ namespace BombsAway
 
             if (WorldManager.manageWorld.isPositionOnMap(newX, newY) && (ShouldDestroyOnTile(newX, newY) || WorldManager.manageWorld.onTileMap[newX, newY] == -1))
             {
-                if (WorldManager.manageWorld.onTileMap[newX, newY] != -1)
-                {
-                    NetworkMapSharer.share.RpcUpdateOnTileObject(-1, newX, newY);
-                }
-
-                updateTileHeight(initialHeight, newX, newY, xDif, yDif);
-
                 var bombModeActive = BombManager.Instance.GetActiveMode();
-                var randomTileObjectId = bombModeActive.NextRandomTileObjectID();
-                NetworkMapSharer.share.RpcUpdateOnTileObject(randomTileObjectId, newX, newY);
-                NetworkMapSharer.share.RpcUpdateTileType(bombModeActive.GetTileType(xPos, yPos, newX, newY, randomTileObjectId), newX, newY);
+
+                int newHeight = bombModeActive.GetTileHeightDifference(initialHeight, newX, newY, xDif, yDif);
+                NetworkMapSharer.share.RpcUpdateTileHeight(newHeight, newX, newY);
+                int tileObjectId = bombModeActive.GetNextTileObjectID(xPos, yPos, newX, newY);
+                NetworkMapSharer.share.RpcUpdateOnTileObject(tileObjectId, newX, newY);
+                int tileTypeId = bombModeActive.GetTileType(xPos, yPos, newX, newY, tileObjectId);
+                NetworkMapSharer.share.RpcUpdateTileType(tileTypeId, newX, newY);
+
+                bombModeActive.AfterEffects(xPos, yPos, newX, newY, tileObjectId);
             }
         }
 
         internal static IEnumerator StartExplosion(BombExplodes instance, int xPos, int yPos, int initialHeight)
         {
+            int i = 0;
+            int stages = (int)Mathf.Pow(BombManager.Instance.Radius, 3);
             foreach (var coords in BombManager.Instance.ExplosionCoordinates)
             {
                 ExplodeTile(instance, xPos, yPos, coords.Item1, coords.Item2, initialHeight);
+                if (++i % stages == 0)
+                {
+                    yield return null;
+                }
             }
             yield break;
         }
@@ -59,33 +64,6 @@ namespace BombsAway
 
                 WorldManager.manageWorld.onTileMap[xPos, yPos] = tileObjectId;
             }
-        }
-
-        private static void updateTileHeight(int initialHeight, int newX, int newY, int xDif, int yDif)
-        {
-            int distance = Mathf.Abs(xDif) + Mathf.Abs(yDif);
-            int heightDif = WorldManager.manageWorld.heightMap[newX, newY] - initialHeight;
-            int newHeight = 0;
-            int radius = BombManager.Instance.Radius;
-            int distanceFactor = BombManager.Instance.GetActiveMode().DistanceFactorFunction(distance);
-            float modifier = BombManager.Instance.GetActiveMode().ExplosionModifier;
-
-            switch (BombManager.Instance.BombState)
-            {
-                case 0:
-                    if (heightDif >= 0 && heightDif <= 1 + radius - distance)
-                        newHeight = -Mathf.RoundToInt(modifier * Mathf.Clamp((radius * 2 - distanceFactor), 0, radius + 1));
-                    break;
-                case 1:
-                    if (heightDif <= radius && heightDif >= -1 - radius + distance)
-                        newHeight = Mathf.RoundToInt(modifier * Mathf.Clamp(radius * 2 - distanceFactor, 0, radius + 1));
-                    break;
-                case 2:
-                    newHeight = -heightDif;
-                    break;
-            }
-            
-            NetworkMapSharer.share.RpcUpdateTileHeight(newHeight, newX, newY);
         }
     }
 }
