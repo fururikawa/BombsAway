@@ -23,6 +23,8 @@ namespace BombsAway
 
                 bombModeActive.AfterEffects(xPos, yPos, newX, newY, tileObjectId);
             }
+            
+            WorldManager.manageWorld.heightChunkHasChanged(newX, newY);
         }
 
         internal static IEnumerator StartExplosion(BombExplodes instance, int xPos, int yPos, int initialHeight)
