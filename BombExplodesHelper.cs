@@ -10,7 +10,7 @@ namespace BombsAway
             int newX = xPos + xDif;
             int newY = yPos + yDif;
 
-            if (WorldManager.manageWorld.isPositionOnMap(newX, newY) && (ShouldDestroyOnTile(newX, newY) || WorldManager.manageWorld.onTileMap[newX, newY] == -1))
+            if (WorldManager.manageWorld.isPositionOnMap(newX, newY) && (WorldManager.manageWorld.onTileMap[newX, newY] == -1 || ShouldDestroyOnTile(newX, newY)))
             {
                 var bombModeActive = BombManager.Instance.GetActiveMode();
 
@@ -22,9 +22,9 @@ namespace BombsAway
                 NetworkMapSharer.share.RpcUpdateTileType(tileTypeId, newX, newY);
 
                 bombModeActive.AfterEffects(xPos, yPos, newX, newY, tileObjectId);
+
+                WorldManager.manageWorld.heightChunkHasChanged(newX, newY);
             }
-            
-            WorldManager.manageWorld.heightChunkHasChanged(newX, newY);
         }
 
         internal static IEnumerator StartExplosion(BombExplodes instance, int xPos, int yPos, int initialHeight)
@@ -52,20 +52,6 @@ namespace BombsAway
                     WorldManager.manageWorld.allObjectSettings[WorldManager.manageWorld.onTileMap[xPos, yPos]].isHardStone ||
                     (WorldManager.manageWorld.allObjectSettings[WorldManager.manageWorld.onTileMap[xPos, yPos]].isHardStone &&
                         WorldManager.manageWorld.allObjectSettings[WorldManager.manageWorld.onTileMap[xPos, yPos]].isMultiTileObject));
-        }
-
-        private static void placeWorldObject(int xPos, int yPos, int tileObjectId)
-        {
-            if (tileObjectId != -1)
-            {
-                if (WorldManager.manageWorld.allObjects[tileObjectId].tileObjectGrowthStages)
-                {
-                    var growthStages = WorldManager.manageWorld.allObjects[tileObjectId].tileObjectGrowthStages.objectStages;
-                    WorldManager.manageWorld.onTileStatusMap[xPos, yPos] = UnityEngine.Random.Range(0, growthStages.Length);
-                }
-
-                WorldManager.manageWorld.onTileMap[xPos, yPos] = tileObjectId;
-            }
         }
     }
 }
