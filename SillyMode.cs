@@ -15,7 +15,8 @@ namespace BombsAway
                     !t.GetComponent<TileObjectConnect>() &&
                     t.canBePickedUp &&
                     (t.tileObjectId < 309 || t.tileObjectId > 313) &&
-                    t.tileObjectId != 343);
+                    t.tileObjectId != 343 &&
+                    t.tileObjectId != 15);
 
                 if (!BombManager.Instance.AllowBerleyBoxes)
                 {
